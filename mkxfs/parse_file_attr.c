@@ -56,7 +56,8 @@ enum common_attrs {
 	ATTR_TYPE,
 	ATTR_UID,
 	ATTR_FOLLOWLINK,
-	ATTR_DPERMS
+	ATTR_DPERMS,
+	ATTR_MTIME
 };
 
 struct attr_types common_attr_table[] = {
@@ -73,6 +74,7 @@ struct attr_types common_attr_table[] = {
 	{ "uid=",		ATTR_UID },
 	{ "followlink",	ATTR_FOLLOWLINK },
 	{ "dperms=",	ATTR_DPERMS },
+	{ "mtime=",	ATTR_MTIME },
 	{ NULL }
 };
 
@@ -278,6 +280,10 @@ parse_common_attr(char *token, struct attr_file_entry *attrp) {
 			add_symbolic_perms_spec(&attrp->dperms_mask, &attrp->dperms_set, sval);
 		}
 		break;
+	case ATTR_MTIME:
+		attrp->inherit_mtime = 0;
+		attrp->mtime = ival;
+		break;
 	case -2: /* attribute was conditional - we're ignoring it - see decode_attr*/
 		return -1;
 	default:
@@ -303,6 +309,7 @@ parse_common_init(struct attr_file_entry *attrp) {
 	attrp->follow_sym_link = 1;
 	attrp->optional = 1;
 	attrp->autolink = 1;
+	attrp->inherit_mtime = 1;
 }
 
 

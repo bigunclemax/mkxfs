@@ -157,6 +157,8 @@ struct attr_file_entry {
 	unsigned					 page_align : 1;
 	unsigned					 phys_align;
 	int					         phys_align_group;
+	unsigned					 inherit_mtime : 1;
+	unsigned					 mtime;
 };
 
 struct attr_file_list {

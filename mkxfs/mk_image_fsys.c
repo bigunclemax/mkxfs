@@ -2298,7 +2298,8 @@ ifs_make_fsys(FILE *dst_fp, struct file_entry *list, char *mountpoint, char *des
 		dent->attr.size = swap16(target_endian, n);
 		dent->attr.extattr_offset = 0;
 		dent->attr.ino = swap32(target_endian, fip->inode);
-		dent->attr.mtime = no_time > 1 ? 0 : swap32(target_endian, fip->host_mtime);
+		val = (fip->attr->inherit_mtime) ? fip->host_mtime : fip->attr->mtime;
+		dent->attr.mtime = no_time > 1 ? 0 : swap32(target_endian, val);
 		val = fip->host_perms;
 		if(fip->flags & FILE_FLAGS_RELOCATED) {
 			//If the file was relocatable, we've linked it, so make sure
