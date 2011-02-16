@@ -1744,6 +1744,10 @@ parse_file_name(int tokenc, char *tokenv[], struct attr_file_entry *attrp) {
 		parse_script(src_fp, script_fp);
 
 		fclose(src_fp);
+
+		// HACK: support a raw(binary) script
+		if (attrp->raw)
+			host = src_file;
 	}
 
 	if(host != NULL) {
