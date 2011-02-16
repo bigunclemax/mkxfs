@@ -987,8 +987,26 @@ void process_device(FILE *fp, int ipos, struct image_device *ent) {
 	}
 }
 
-void extract_file(FILE *fp, int ipos, struct image_file *ent) {
-	char			*name;
+void mkdir_p(const char *dir) {
+	char tmp[_POSIX_PATH_MAX];
+	char *p = NULL;
+	size_t len;
+
+	snprintf(tmp, sizeof(tmp),"%s",dir);
+	len = strlen(tmp);
+	if (tmp[len - 1] == '/')
+		tmp[len - 1] = 0;
+	for (p = tmp + 1; *p; p++)
+		if (*p == '/') {
+			*p = 0;
+			mkdir(tmp, S_IRWXU);
+			*p = '/';
+		}
+	mkdir(tmp, S_IRWXU);
+}
+
+void extract_file(FILE *fp, int ipos, const struct image_file *ent) {
+	char			*name, nbuff[_POSIX_PATH_MAX];
 	FILE			*dst;
 	struct utimbuf	buff;
 	struct extract_file *ef;
@@ -997,7 +1015,8 @@ void extract_file(FILE *fp, int ipos, struct image_file *ent) {
 		return;
 	}
 
-	name = (flags & FLAG_BASENAME) ? basename(ent->path) : ent->path;
+	strcpy(nbuff, ent->path);
+	name = (flags & FLAG_BASENAME) ? basename(nbuff) : nbuff;
 
 	if ( extract_files != NULL ) {
 		for ( ef = extract_files; ef != NULL; ef = ef->next ) {
@@ -1011,6 +1030,19 @@ void extract_file(FILE *fp, int ipos, struct image_file *ent) {
 		if ( --files_left_to_extract == 0 ) {
 			processing_done = 1;
 		}
+	}
+
+	if (!(flags & FLAG_BASENAME)) {
+		struct stat sb;
+		char		*dir, *s = strdup(name);
+
+		dir = dirname(s);
+
+		if (!(stat(dir, &sb) == 0 && S_ISDIR(sb.st_mode))) {
+			mkdir_p(dir);
+		}
+
+		free(s);
 	}
 
 	if(!(dst = fopen(name, "wb"))) {
