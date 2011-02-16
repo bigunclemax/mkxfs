@@ -1752,7 +1752,9 @@ locate_files(struct file_entry *list, int offset, char *destname) {
 			offset = fip->file_offset + fip->size;
 			owner = &fip->next;
 		} else if(fip->attr->page_align) {
-			fip->file_offset = RUP(offset, booter.pagesize);
+			// HACK: "abuse" phys_align attribute to specify a file alignment
+			align = max(fip->attr->phys_align, booter.pagesize);
+			fip->file_offset = RUP(offset, align);
 			offset = fip->file_offset + fip->size;
 			owner = &fip->next;
 		} else {
