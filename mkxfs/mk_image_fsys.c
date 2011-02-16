@@ -784,6 +784,9 @@ copy_elf(int fd, FILE *dst_fp, struct file_entry *fip) {
 #ifdef COPY_BOOTFILES
 	unsigned			ram_loc;
 #endif
+	// HACK: copy elf files as is
+	copy_data(fd, dst_fp, fip->size, fip);
+	return;
 
 	if(read(fd, &ehdr, sizeof(ehdr)) != sizeof(ehdr)) {
 		error_exit("Failed reading ELF header in %s.\n", fip->hostpath);
@@ -1088,7 +1091,8 @@ classify_file(struct file_entry *fip) {
 		//NYI: what to do if not a plain old data file (link, fifo, etc)?
 		fip->size = sbuf.st_size;
 		close(fd);
-		if( (fip->flags & FILE_FLAGS_BOOT) && (fip->flags & FILE_FLAGS_STARTUP)) {
+		// HACK: ignore this error, because we use raw(not elf) startup file
+		if(0 && (fip->flags & FILE_FLAGS_BOOT) && (fip->flags & FILE_FLAGS_STARTUP)) {
 			error_exit("Couldn't find linker spec for boot/startup file: %s\n", fip->hostpath);
 		}
 		return(0);
@@ -1381,6 +1385,9 @@ relocate(struct file_entry *fip, int text_addr, int data_addr, int ehdr_size, ch
 	struct repeat_entry		*new;
 	struct name_list		*list;
 	int						want_dir;
+
+	// HACK: don't relocate elf files
+	return 0;
 
 	rep = NULL;
 
