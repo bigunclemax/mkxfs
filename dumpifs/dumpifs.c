@@ -59,6 +59,8 @@ unsigned flags;
 char **check_files;
 char *ucompress_file;
 int zero_check_enabled = 1;
+FILE *fp_bld;
+FILE *fp_bootstrap;
 
 int files_to_extract;
 int files_left_to_extract;
@@ -74,6 +76,8 @@ struct extract_file {
 #define FLAG_MD5			0x00000008
 #define FLAG_CHECK_CRC		0x00000010
 #define FLAG_FIXUP_HEADER	0x00000020
+#define FLAG_EXTRACT_RAW	0x00000040
+#define FLAG_INO_NAME		0x00000080
 
 #define ENDIAN_RET32(x)		((((x) >> 24) & 0xff) | \
 							(((x) >> 8) & 0xff00) | \
@@ -107,14 +111,15 @@ void usage() {
           startup header less reliable.\n\
           Note: this may not be supported in the future.\n\
  -с       Perform checksum checking\n\
- -e       Fixup header of uncompressed file\n"), progname, progname);
+ -e       Fixup header of uncompressed file\n\
+ -r       Extract raw content\n"), progname, progname);
 }
 
 void process(const char *file, FILE *fp);
 
 void display_shdr(FILE *fp, int spos, struct startup_header *hdr);
 void display_ihdr(FILE *fp, int ipos, struct image_header *hdr);
-void process_file(FILE *fp, int ipos, struct image_file *ent);
+void process_file(FILE *fp, int ipos, struct image_file *ent, int is_script);
 void process_dir(FILE *fp, int ipos, struct image_dir *ent);
 void process_symlink(FILE *fp, int ipos, struct image_symlink *ent);
 void process_device(FILE *fp, int ipos, struct image_device *ent);
@@ -160,7 +165,7 @@ int main(int argc, char *argv[]) {
 
 	progname = basename(argv[0]);
 
-	while((c = getopt(argc, argv, "f:d:mvxbu:zche")) != -1) {
+	while((c = getopt(argc, argv, "f:d:mvxbu:zcher")) != -1) {
 		switch(c) {
 
 		case 'f':
@@ -216,6 +221,10 @@ int main(int argc, char *argv[]) {
 
 		case 'e':
 			flags |= FLAG_FIXUP_HEADER;
+			break;
+
+		case 'r':
+			flags |= (FLAG_EXTRACT_RAW | FLAG_INO_NAME);
 			break;
 
 		case 'h':
@@ -550,6 +559,39 @@ void process(const char *file, FILE *fp) {
 			}
 		}
 
+		if(flags & (FLAG_EXTRACT_RAW)) {
+			char boot_name[] = "binary.boot";
+			char startup_name[] = "startup";
+			FILE *fp_ext;
+			int n;
+
+			// Extract boot prefix
+			if(!(fp_ext = fopen(boot_name, "wb"))) {
+				error(0, "Unable to open %s: %s\n", boot_name, strerror(errno));
+			}
+
+			putc('b', fp_ext);
+			putc('o', fp_ext);
+			putc('o', fp_ext);
+			putc('t', fp_ext);
+
+			rewind(fp);
+			for(n = 0 ; n < spos; ++n) {
+				putc(getc(fp), fp_ext);
+			}
+			fclose(fp_ext);
+
+			// Extract raw startup
+			if(!(fp_ext = fopen(startup_name, "wb"))) {
+				error(0, "Unable to open %s: %s\n", startup_name, strerror(errno));
+			}
+			fseek(fp, spos + sizeof shdr, SEEK_SET);
+			for(n = 0 ; n < shdr.startup_size - sizeof shdr - sizeof(struct startup_trailer); ++n) {
+				putc(getc(fp), fp_ext);
+			}
+			fclose(fp_ext);
+		}
+
 		// If the image is compressed we need to uncompress it into a
 		// tempfile and restart.
 		if((shdr.flags1 & STARTUP_HDR_FLAGS1_COMPRESS_MASK) != 0) {
@@ -731,6 +773,44 @@ void process(const char *file, FILE *fp) {
 		}
 	}
 
+	if(flags & (FLAG_EXTRACT_RAW)) {
+		char imagefs_name[] = "imagefs";
+		FILE *fp_ext;
+		int n;
+
+		// Extract ImageFS
+		if(!(fp_ext = fopen(imagefs_name, "wb"))) {
+			error(0, "Unable to open %s: %s\n", imagefs_name, strerror(errno));
+		}
+		fseek(fp, ipos, SEEK_SET);
+		for(n = 0 ; n < ihdr.image_size; ++n) {
+			putc(getc(fp), fp_ext);
+		}
+		fclose(fp_ext);
+
+		// Create buildfile
+		if(!(fp_bld = fopen("buildfile.bld", "w"))) {
+			error(0, "Unable to open %s: %s\n", "buildfile.bld", strerror(errno));
+		}
+
+		if (spos != -1) {
+			fprintf(fp_bld, "[image=0x%x]\n", shdr.image_paddr - spos);
+			fprintf(fp_bld, "[virtual=binary%s] bootstrap\n",
+					(shdr.flags1 & STARTUP_HDR_FLAGS1_COMPRESS_MASK) ? " +compress" : "");
+
+			// Create bootstrap
+			if(!(fp_bootstrap = fopen("bootstrap", "w"))) {
+				error(0, "Unable to open %s: %s\n", "bootstrap", strerror(errno));
+			}
+			fprintf(fp_bootstrap, "[machine=%d entry=0x%x] startup\n",
+					shdr.machine, shdr.startup_vaddr);
+		}
+
+		fprintf(fp_bld, "[+page_align]\n");
+		fprintf(fp_bld, "[prefix=\"\"]\n");
+		fprintf(fp_bld, "[mount=\"%s\"]\n", ihdr.mountpoint);
+	}
+
 	dpos = ipos + ihdr.dir_offset;
 
 	if(flags & FLAG_DISPLAY) {
@@ -790,7 +870,7 @@ void process(const char *file, FILE *fp) {
 				dir->file.offset = ENDIAN_RET32(dir->file.offset);
 				dir->file.size = ENDIAN_RET32(dir->file.size);
 			}
-			process_file(fp, ipos, &dir->file);
+			process_file(fp, ipos, &dir->file, (dir->attr.ino == ihdr.script_ino));
 			if(dir->attr.ino == ihdr.script_ino && verbose > 1) {
 				display_script(fp, ipos + dir->file.offset, dir->file.size);
 			}
@@ -847,6 +927,12 @@ void process(const char *file, FILE *fp) {
 				printf(" startup=%#x", stlr.cksum);
 		}
 		printf("\n");
+	}
+	if(flags & (FLAG_EXTRACT_RAW)) {
+		fclose(fp_bld);
+
+		if(fp_bootstrap)
+			fclose(fp_bootstrap);
 	}
 }
 
@@ -934,8 +1020,38 @@ void display_ihdr(FILE *fp, int ipos, struct image_header *hdr) {
 	}
 }
 
+void display_inode_flags(uint32_t ino) {
+	if (ino & IFS_INO_BOOTSTRAP_EXE)
+		putc('B', stdout);
+	if (ino & IFS_INO_RUNONCE_ELF)
+		putc('O', stdout);
+	if (ino & IFS_INO_PROCESSED_ELF)
+		putc('E', stdout);
+
+	putc('\n', stdout);
+}
+
+#define FILE_FLAGS_BOOT			0x0001
+#define FILE_FLAGS_EXEC			0x0010
+#define FILE_FLAGS_RUNONCE		0x0040
+
+uint32_t get_inode_flags(uint32_t ino) {
+	uint32_t val = 0;
+
+	if (ino & IFS_INO_BOOTSTRAP_EXE)
+		val |= FILE_FLAGS_BOOT;
+	if (ino & IFS_INO_RUNONCE_ELF)
+		val |= FILE_FLAGS_RUNONCE;
+	if (ino & IFS_INO_PROCESSED_ELF)
+		val |= FILE_FLAGS_EXEC;
+
+	return val;
+}
+
 void display_attr(struct image_attr *attr) {
-	printf("                       gid=%d uid=%d mode=%#o ino=%08x mtime=%x\n", attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->ino, attr->mtime);
+	printf("                       gid=%d uid=%d mode=%#o mtime=%08x ino=%08x ",
+		   attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->mtime, attr->ino);
+	display_inode_flags(attr->ino);
 }
 
 void display_dir(FILE *fp, int ipos, struct image_dir *ent) {
@@ -952,6 +1068,11 @@ void process_dir(FILE *fp, int ipos, struct image_dir *ent) {
 	if(flags & FLAG_DISPLAY) {
 		display_dir(fp, ipos, ent);
 	}
+	if((flags & (FLAG_EXTRACT_RAW)) && ent->path[0]) {
+		struct image_attr *attr = &ent->attr;
+		fprintf(fp_bld, "[type=dir gid=%d uid=%d dperms=%#o mtime=%u] %s\n",
+				attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->mtime,  ent->path);
+	}
 }
 
 void display_symlink(FILE *fp, int ipos, struct image_symlink *ent) {
@@ -967,6 +1088,13 @@ void display_symlink(FILE *fp, int ipos, struct image_symlink *ent) {
 void process_symlink(FILE *fp, int ipos, struct image_symlink *ent) {
 	if(flags & FLAG_DISPLAY) {
 		display_symlink(fp, ipos, ent);
+	}
+	if(flags & (FLAG_EXTRACT_RAW)) {
+		struct image_attr *attr = &ent->attr;
+		fprintf(fp_bld, "[type=link gid=%d uid=%d perms=%#o mtime=%u flags=%u] %s=%s\n",
+				attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->mtime,
+				get_inode_flags(attr->ino),
+				ent->path, &ent->path[ent->sym_offset]);
 	}
 }
 
@@ -1015,7 +1143,11 @@ void extract_file(FILE *fp, int ipos, const struct image_file *ent) {
 		return;
 	}
 
-	strcpy(nbuff, ent->path);
+	if ((flags & FLAG_INO_NAME) && !(ent->attr.ino & IFS_INO_BOOTSTRAP_EXE))
+		snprintf(nbuff, sizeof nbuff, "%s_i%u", ent->path, ent->attr.ino);
+	else
+		strcpy(nbuff, ent->path);
+
 	name = (flags & FLAG_BASENAME) ? basename(nbuff) : nbuff;
 
 	if ( extract_files != NULL ) {
@@ -1065,12 +1197,50 @@ void extract_file(FILE *fp, int ipos, const struct image_file *ent) {
 	}
 }
 
-void process_file(FILE *fp, int ipos, struct image_file *ent) {
+const char* get_phys_align(uint32_t offset) {
+	static const char str_4K[] 	= "4K";
+	static const char str_64K[] = "64K";
+	static const char str_1M[] 	= "1M";
+
+	if (!(offset % 0x100000))
+		return str_1M;
+	if (!(offset % 0x10000))
+		return str_64K;
+
+	return str_4K;
+}
+
+void process_file(FILE *fp, int ipos, struct image_file *ent, int is_script) {
 	if(flags & FLAG_EXTRACT) {
 		extract_file(fp, ipos, ent);
 	}
 	if(flags & (FLAG_MD5|FLAG_DISPLAY)) {
 		display_file(fp, ipos, ent);
+	}
+	if(flags & (FLAG_EXTRACT_RAW)) {
+		struct image_attr *attr = &ent->attr;
+		const char *script_str = "";
+		FILE *fp_out = fp_bld;
+
+		if (is_script) {
+			script_str = " +script +raw";
+		} else if (attr->ino & IFS_INO_BOOTSTRAP_EXE) {
+			fp_out = fp_bootstrap;
+		}
+
+		fprintf(fp_out, "[type=file gid=%d uid=%d perms=%#o mtime=%u +raw flags=%u phys_align=%s%s] %s",
+				attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->mtime,
+				get_inode_flags(attr->ino), get_phys_align(ipos + ent->offset),
+				script_str, ent->path);
+
+		if (attr->ino & IFS_INO_BOOTSTRAP_EXE) {
+			putc('\n', fp_out);
+		} else {
+			if (flags & FLAG_INO_NAME)
+				fprintf(fp_out, "=%s_i%u\n", ent->path, ent->attr.ino);
+			else
+				fprintf(fp_out, "=%s\n", ent->path);
+		}
 	}
 }
 
