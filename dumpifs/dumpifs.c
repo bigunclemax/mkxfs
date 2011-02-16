@@ -72,6 +72,7 @@ struct extract_file {
 #define FLAG_DISPLAY		0x00000002
 #define FLAG_BASENAME		0x00000004
 #define FLAG_MD5			0x00000008
+#define FLAG_CHECK_CRC		0x00000010
 
 #define ENDIAN_RET32(x)		((((x) >> 24) & 0xff) | \
 							(((x) >> 8) & 0xff00) | \
@@ -103,7 +104,8 @@ void usage() {
  -z       Disable the zero check while searching for the startup header.\n\
           This option should be avoided as it makes the search for the\n\
           startup header less reliable.\n\
-          Note: this may not be supported in the future.\n"), progname, progname);
+          Note: this may not be supported in the future.\n\
+ -с       Perform checksum checking\n"), progname, progname);
 }
 
 void process(const char *file, FILE *fp);
@@ -156,7 +158,7 @@ int main(int argc, char *argv[]) {
 
 	progname = basename(argv[0]);
 
-	while((c = getopt(argc, argv, "f:d:mvxbu:zh")) != -1) {
+	while((c = getopt(argc, argv, "f:d:mvxbu:zhc")) != -1) {
 		switch(c) {
 
 		case 'f':
@@ -204,6 +206,10 @@ int main(int argc, char *argv[]) {
 
 		case 'z':
 			zero_check_enabled = 0;
+			break;
+
+		case 'c':
+			flags |= FLAG_CHECK_CRC;
 			break;
 
 		case 'h':
@@ -460,6 +466,25 @@ wait:
 	}
 }
 
+uint32_t calc_cksum(FILE *fp, long off, uint32_t len) {
+	uint32_t	sum = 0;
+	long		pos = ftell(fp);
+
+	fseek(fp, off, SEEK_SET);
+
+	while (len >= 4)
+	{
+		int	data;
+		fread(&data, 4, 1, fp);
+		sum += data;
+		len -= 4;
+	}
+
+	fseek(fp, pos, SEEK_SET);
+
+	return -sum;
+}
+
 void process(const char *file, FILE *fp) {
 	struct startup_header		shdr = { STARTUP_HDR_SIGNATURE };
 	int							spos;
@@ -501,6 +526,21 @@ void process(const char *file, FILE *fp) {
 				break;
 			} else {
 				break;
+			}
+		}
+
+		if(flags & (FLAG_CHECK_CRC)) {
+			struct startup_trailer	stlr;
+			uint32_t cksum = calc_cksum(fp, spos, (shdr.startup_size-sizeof(stlr)));
+
+			fseek(fp, spos + shdr.startup_size-sizeof(stlr), SEEK_SET);
+			if(fread(&stlr, sizeof(stlr), 1, fp) != 1) {
+				error(1, "Early end reading startup trailer");
+				return;
+			}
+			if(cksum != stlr.cksum) {
+				error(1, "Startup header checksum mismatch");
+				return;
 			}
 		}
 
@@ -637,6 +677,21 @@ void process(const char *file, FILE *fp) {
 
 		for(p = (uint32_t *)&ihdr.image_size; (unsigned char *)p < (unsigned char *)&ihdr + offsetof(struct image_header, mountpoint); p++) {
 			*p = ENDIAN_RET32(*p);
+		}
+	}
+
+	if(flags & (FLAG_CHECK_CRC)) {
+		struct image_trailer	itlr;
+		uint32_t cksum = calc_cksum(fp, ipos, (ihdr.image_size-sizeof(itlr)));
+
+		fseek(fp, ipos + ihdr.image_size-sizeof(itlr), SEEK_SET);
+		if(fread(&itlr, sizeof(itlr), 1, fp) != 1) {
+			error(1, "Early end reading image trailer");
+			return;
+		}
+		if(cksum != itlr.cksum) {
+			error(1, "Image header checksum mismatch");
+			return;
 		}
 	}
 
