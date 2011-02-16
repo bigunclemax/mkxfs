@@ -2146,7 +2146,8 @@ ifs_make_fsys(FILE *dst_fp, struct file_entry *list, char *mountpoint, char *des
 		}
 		if(*owner == NULL) break;
 	}
-	fsize = RUP(fip->file_offset + fip->size, 4) - (bsize + ssize + hsize + dsize);
+	// HACK: pad file content to 64K border
+	fsize = RUP(fip->file_offset + fip->size, 0x10000) - (bsize + ssize + hsize + dsize);
 
 	totalsize = bsize+ssize+hsize+dsize+fsize+tsize;
 	if(image.totalsize != 0) {
