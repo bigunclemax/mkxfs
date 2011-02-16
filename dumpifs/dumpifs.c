@@ -812,14 +812,14 @@ void display_ihdr(FILE *fp, int ipos, struct image_header *hdr) {
 			printf(" chain=%#x", hdr->chain_paddr);
 		}
 		if(hdr->script_ino) {
-			printf(" script=%d", hdr->script_ino);
+			printf(" script=%x", hdr->script_ino);
 		}
 		for(i = 0; i < sizeof hdr->boot_ino / sizeof hdr->boot_ino[0]; i++) {
 			if(hdr->boot_ino[i]) {
-				printf(" boot=%d", hdr->boot_ino[i]);
+				printf(" boot=%x", hdr->boot_ino[i]);
 				for(i++; i < sizeof hdr->boot_ino / sizeof hdr->boot_ino[0]; i++) {
 					if(hdr->boot_ino[i]) {
-						printf(",%d", hdr->boot_ino[i]);
+						printf(",%x", hdr->boot_ino[i]);
 					}
 				}
 				break;
@@ -839,14 +839,14 @@ void display_ihdr(FILE *fp, int ipos, struct image_header *hdr) {
 }
 
 void display_attr(struct image_attr *attr) {
-	printf("                       gid=%d uid=%d mode=%#o ino=%u mtime=%x\n", attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->ino, attr->mtime);
+	printf("                       gid=%d uid=%d mode=%#o ino=%08x mtime=%x\n", attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->ino, attr->mtime);
 }
 
 void display_dir(FILE *fp, int ipos, struct image_dir *ent) {
 	if(check(ent->path[0] ? ent->path : "Root-dirent") != 0) {
 		return;
 	}
-	printf("     ----     ----  %s\n", ent->path[0] ? ent->path : "Root-dirent");
+	printf("     ----     ----  %s [dir]\n", ent->path[0] ? ent->path : "Root-dirent");
 	if(verbose) {
 		display_attr(&ent->attr);
 	}
@@ -862,7 +862,7 @@ void display_symlink(FILE *fp, int ipos, struct image_symlink *ent) {
 	if(check(ent->path) != 0) {
 		return;
 	}
-	printf("     ---- %8x  %s -> %s\n", ent->sym_size, ent->path, &ent->path[ent->sym_offset]);
+	printf("     ---- %8x  %s -> %s [symlink]\n", ent->sym_size, ent->path, &ent->path[ent->sym_offset]);
 	if(verbose) {
 		display_attr(&ent->attr);
 	}
@@ -878,7 +878,7 @@ void display_device(FILE *fp, int ipos, struct image_device *ent) {
 	if(check(ent->path) != 0) {
 		return;
 	}
-	printf("     ----     ----  %s dev=%d rdev=%d\n", ent->path, ent->dev, ent->rdev);
+	printf("     ----     ----  %s dev=%d rdev=%d [dev]\n", ent->path, ent->dev, ent->rdev);
 
 	if(verbose) {
 		display_attr(&ent->attr);
@@ -1189,7 +1189,7 @@ void display_file(FILE *fp, int ipos, struct image_file *ent) {
 	if(check(ent->path) != 0) {
 		return;
 	}
-	printf(" %8x %8x  %s", ipos + ent->offset, ent->size, ent->path);
+	printf(" %8x %8x  %s [file]", ipos + ent->offset, ent->size, ent->path);
 	if (flags & FLAG_MD5) {
 		unsigned char	md5_result[MD5_LENGTH];
 		int				i;
