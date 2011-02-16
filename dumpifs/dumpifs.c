@@ -17,22 +17,6 @@
 
 
 
-#ifdef __USAGE
-%C - dump an image file system
-
-%C	[-mvxbz -u file] [-f file] image_file_system_file [files]
- -b       Extract to basenames of files
- -u file  Put a copy of the uncompressed image file here
- -v       Verbose
- -x       Extract files
- -m       Display MD5 Checksum
- -f file  Extract named file
- -z       Disable the zero check while searching for the startup header.
-          This option should be avoided as it makes the search for the
-          startup header less reliable.
-          Note: this may not be supported in the future.
-#endif
-
 #include <lib/compat.h>
 
 #ifdef _NTO_HDR_DIR_
@@ -105,6 +89,23 @@ struct extract_file {
 	#error Host endianness not defined
 #endif
 
+void usage() {
+	printf(("\
+%s - dump an image file system\n\
+\n\
+%s	[-mvxbzc -u file] [-f file] image_file_system_file [files]\n\
+ -b       Extract to basenames of files\n\
+ -u file  Put a copy of the uncompressed image file here\n\
+ -v       Verbose\n\
+ -x       Extract files\n\
+ -m       Display MD5 Checksum\n\
+ -f file  Extract named file\n\
+ -z       Disable the zero check while searching for the startup header.\n\
+          This option should be avoided as it makes the search for the\n\
+          startup header less reliable.\n\
+          Note: this may not be supported in the future.\n"), progname, progname);
+}
+
 void process(const char *file, FILE *fp);
 
 void display_shdr(FILE *fp, int spos, struct startup_header *hdr);
@@ -155,7 +156,7 @@ int main(int argc, char *argv[]) {
 
 	progname = basename(argv[0]);
 
-	while((c = getopt(argc, argv, "f:d:mvxbu:z")) != -1) {
+	while((c = getopt(argc, argv, "f:d:mvxbu:zh")) != -1) {
 		switch(c) {
 
 		case 'f':
@@ -204,7 +205,11 @@ int main(int argc, char *argv[]) {
 		case 'z':
 			zero_check_enabled = 0;
 			break;
-			
+
+		case 'h':
+			usage();
+			return EXIT_SUCCESS;
+
 		default:
 			break;
 		}
