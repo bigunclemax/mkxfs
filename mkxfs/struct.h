@@ -159,6 +159,9 @@ struct attr_file_entry {
 	int					         phys_align_group;
 	unsigned					 inherit_mtime : 1;
 	unsigned					 mtime;
+	int 						 flags;
+	int							 machine;
+	unsigned					 entry;
 };
 
 struct attr_file_list {

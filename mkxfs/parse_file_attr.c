@@ -57,7 +57,10 @@ enum common_attrs {
 	ATTR_UID,
 	ATTR_FOLLOWLINK,
 	ATTR_DPERMS,
-	ATTR_MTIME
+	ATTR_MTIME,
+	ATTR_FLAGS,
+	ATTR_MACHINE,
+	ATTR_ENTRY
 };
 
 struct attr_types common_attr_table[] = {
@@ -75,6 +78,9 @@ struct attr_types common_attr_table[] = {
 	{ "followlink",	ATTR_FOLLOWLINK },
 	{ "dperms=",	ATTR_DPERMS },
 	{ "mtime=",	ATTR_MTIME },
+	{ "flags=",	ATTR_FLAGS },
+	{ "machine=",	ATTR_MACHINE },
+	{ "entry=",	ATTR_ENTRY },
 	{ NULL }
 };
 
@@ -283,6 +289,15 @@ parse_common_attr(char *token, struct attr_file_entry *attrp) {
 	case ATTR_MTIME:
 		attrp->inherit_mtime = 0;
 		attrp->mtime = ival;
+		break;
+	case ATTR_FLAGS:
+		attrp->flags = ival;
+		break;
+	case ATTR_MACHINE:
+		attrp->machine = ival;
+		break;
+	case ATTR_ENTRY:
+		attrp->entry = ival;
 		break;
 	case -2: /* attribute was conditional - we're ignoring it - see decode_attr*/
 		return -1;

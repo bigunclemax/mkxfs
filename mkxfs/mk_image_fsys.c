@@ -1063,6 +1063,15 @@ classify_file(struct file_entry *fip) {
 	
 	fip->size = 0;
 	fip->linker = NULL;
+
+	// HACK: process custom attributes to override file_entry properties
+	if(fip->attr->flags)
+		fip->flags |= fip->attr->flags;
+	if(fip->attr->entry)
+		fip->entry = fip->attr->entry;
+	if(fip->attr->machine)
+		fip->machine = fip->attr->machine;
+
 	if(fip->attr->mode != S_IFREG) return(0);
 
 	fd = ropen(fip);
