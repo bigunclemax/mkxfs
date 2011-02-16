@@ -73,6 +73,7 @@ struct extract_file {
 #define FLAG_BASENAME		0x00000004
 #define FLAG_MD5			0x00000008
 #define FLAG_CHECK_CRC		0x00000010
+#define FLAG_FIXUP_HEADER	0x00000020
 
 #define ENDIAN_RET32(x)		((((x) >> 24) & 0xff) | \
 							(((x) >> 8) & 0xff00) | \
@@ -105,7 +106,8 @@ void usage() {
           This option should be avoided as it makes the search for the\n\
           startup header less reliable.\n\
           Note: this may not be supported in the future.\n\
- -с       Perform checksum checking\n"), progname, progname);
+ -с       Perform checksum checking\n\
+ -e       Fixup header of uncompressed file\n"), progname, progname);
 }
 
 void process(const char *file, FILE *fp);
@@ -158,7 +160,7 @@ int main(int argc, char *argv[]) {
 
 	progname = basename(argv[0]);
 
-	while((c = getopt(argc, argv, "f:d:mvxbu:zhc")) != -1) {
+	while((c = getopt(argc, argv, "f:d:mvxbu:zche")) != -1) {
 		switch(c) {
 
 		case 'f':
@@ -210,6 +212,10 @@ int main(int argc, char *argv[]) {
 
 		case 'c':
 			flags |= FLAG_CHECK_CRC;
+			break;
+
+		case 'e':
+			flags |= FLAG_FIXUP_HEADER;
 			break;
 
 		case 'h':
@@ -647,7 +653,37 @@ void process(const char *file, FILE *fp) {
 			fclose(fp);
 			fp = fp2;
 			rewind(fp2);
-		} 
+
+			if(flags & (FLAG_FIXUP_HEADER)) {
+				struct startup_trailer	stlr;
+
+				shdr.flags1 &= ~STARTUP_HDR_FLAGS1_COMPRESS_MASK;
+
+				fseek(fp, 0L, SEEK_END);
+				shdr.stored_size = ftell(fp) - spos;
+				fseek(fp, spos, SEEK_SET);
+				if(fwrite((void *)&shdr, sizeof shdr, 1, fp) != 1) {
+					error(1, "Fixup startup header error");
+					return;
+				}
+
+				fseek(fp, spos + shdr.startup_size-sizeof(stlr), SEEK_SET);
+				if(fread(&stlr, sizeof(stlr), 1, fp) != 1) {
+					error(1, "Early end reading startup trailer");
+					return;
+				}
+
+				stlr.cksum = calc_cksum(fp, spos, (shdr.startup_size-sizeof(stlr)));
+
+				fseek(fp, spos + shdr.startup_size-sizeof(stlr), SEEK_SET);
+				if(fwrite((void *)&stlr, sizeof stlr, 1, fp) != 1) {
+					error(1, "Fixup startup trailer error");
+					return;
+				}
+
+				rewind(fp);
+			}
+		}
 
 		if(CROSSENDIAN(shdr.flags1 & STARTUP_HDR_FLAGS1_BIGENDIAN)) {
 			uint32_t	*p;
