@@ -325,7 +325,7 @@ char		**ptr;
 
 void display_script(FILE *fp, int pos, int len) {
 	int								off;
-	char							buff[512];
+	char							buff[1024];
 	union script_cmd				*hdr = (union script_cmd *)buff;
 	int								size;
 	int								ext_sched = SCRIPT_SCHED_EXT_NONE;
