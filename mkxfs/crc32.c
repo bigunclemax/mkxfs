@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 
-static unsigned long crctable[] = {
+static uint32_t crctable[] = {
     0x0,
     0x04c11db7, 0x09823b6e, 0x0d4326d9, 0x130476dc, 0x17c56b6b,
     0x1a864db2, 0x1e475005, 0x2608edb8, 0x22c9f00f, 0x2f8ad6d6,
@@ -81,7 +81,7 @@ static uint32_t crc32(uint32_t pcrc,void *buf, size_t len)
 {
     size_t bytes;
     uint32_t crc = pcrc;
-	register unsigned long *tptr = crctable;
+	register uint32_t *tptr = crctable;
     register unsigned char *data =(unsigned char *)buf;
 
     bytes = len; 

@@ -71,7 +71,7 @@ main(int argc, char *argv[]) {
 		return(1);
 	}
 
-	fprintf(fp_out,"%08lX",(unsigned long)sbuf.st_size);		// build file header (size)
+	fprintf(fp_out,"%08lX",(uint32_t)sbuf.st_size);		// build file header (size)
 	while((data=getc(fp_in)) != EOF) {
 		char	ch;
 

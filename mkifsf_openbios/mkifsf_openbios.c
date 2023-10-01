@@ -59,12 +59,12 @@ swap32(int target_endian, long val) {
  * following this header.
  */
 struct openbios_boot_block {
-	unsigned long	magic;
-	unsigned long	dest;
-	unsigned long	num_512blocks;
-	unsigned long	debug_flag;
-	unsigned long	entry_point;
-	unsigned long	reserved[3];
+	uint32_t	magic;
+	uint32_t	dest;
+	uint32_t	num_512blocks;
+	uint32_t	debug_flag;
+	uint32_t	entry_point;
+	uint32_t	reserved[3];
 };
 
 int
@@ -78,7 +78,7 @@ main( int argc, char *argv[] ) {
 	struct stat					sbuf;
 	char						*name;
 	int							grow;
-	unsigned long				new_size;
+	uint32_t					new_size;
 	static char					fill[511];
 
 	// Calculate the endian of the host this program is running on.

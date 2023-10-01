@@ -298,7 +298,7 @@ char *tokenize(char *input, char *space, char term);
 void error_exit(char *format, ...);
 int  decode_attr(int report_err, struct attr_types *atp, char *name, int *ivalp, char **svalp);
 char *mk_tmpfile();
-unsigned long getsize(char *str, char **dst);
+uint32_t getsize(char *str, char **dst);
 
 short int swap16(int target_endian, int val);
 long  int swap32(int target_endian, int val);

@@ -100,7 +100,7 @@ adj_loc(struct loc *loc, unsigned val) {
 }
 
 static void
-putsrec(unsigned char *ibuf, unsigned n, unsigned long offset, FILE *fp, char base, int dir) {
+putsrec(unsigned char *ibuf, unsigned n, uint32_t offset, FILE *fp, char base, int dir) {
 	unsigned char	*op, obuf[MAX_RECLEN*2 + 16];
 	unsigned		i, cnt, csum;
 	static const char	hextable[] = "0123456789ABCDEF";
@@ -149,7 +149,7 @@ main(int argc, char *argv[]) {
 	char						*name_in;
 	char						*name_out;
 	unsigned char				ibuf[MAX_RECLEN];
-	unsigned long				offset;
+	uint32_t					offset;
 	struct loc					paddr;
 	struct loc					entry;
 

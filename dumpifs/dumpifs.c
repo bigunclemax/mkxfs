@@ -57,7 +57,7 @@
 #include _NTO_HDR_(sys/image.h)
 
 #include <zlib.h>
-#include <lzo1x.h>
+#include <lzo/lzo1x.h>
 #include <ucl/ucl.h>
 
 #include "xplatform.h"
@@ -534,7 +534,7 @@ void process(const char *file, FILE *fp) {
 			case STARTUP_HDR_FLAGS1_COMPRESS_ZLIB:
 				{
 					int			fd;
-					gzFile			*zin;
+					gzFile		zin;
 
 					// We need an fd for zlib, and we cannot count on the fd
 					// position being the same as the FILE *'s, so fileno() 
@@ -605,14 +605,14 @@ void process(const char *file, FILE *fp) {
 		} 
 
 		if(CROSSENDIAN(shdr.flags1 & STARTUP_HDR_FLAGS1_BIGENDIAN)) {
-			unsigned long			*p;
+			uint32_t	*p;
 
 			shdr.version = ENDIAN_RET16(shdr.version);
 			shdr.machine = ENDIAN_RET16(shdr.machine);
 			shdr.header_size = ENDIAN_RET16(shdr.header_size);
 			shdr.preboot_size = ENDIAN_RET16(shdr.preboot_size);
-			for(p = (unsigned long *)&shdr.startup_vaddr; (unsigned char *)p < (unsigned char *)&shdr + sizeof shdr; p++) {
-				if(p != (unsigned long *)&shdr.preboot_size) {
+			for(p = (uint32_t *)&shdr.startup_vaddr; (unsigned char *)p < (unsigned char *)&shdr + sizeof shdr; p++) {
+				if(p != (uint32_t *)&shdr.preboot_size) {
 					*p = ENDIAN_RET32(*p);
 				}
 			}
@@ -628,9 +628,9 @@ void process(const char *file, FILE *fp) {
 		return;
 	}
 	if(CROSSENDIAN(ihdr.flags & IMAGE_FLAGS_BIGENDIAN)) {
-		unsigned long			*p;
+		uint32_t	*p;
 
-		for(p = (unsigned long *)&ihdr.image_size; (unsigned char *)p < (unsigned char *)&ihdr + offsetof(struct image_header, mountpoint); p++) {
+		for(p = (uint32_t *)&ihdr.image_size; (unsigned char *)p < (unsigned char *)&ihdr + offsetof(struct image_header, mountpoint); p++) {
 			*p = ENDIAN_RET32(*p);
 		}
 	}
@@ -647,12 +647,12 @@ void process(const char *file, FILE *fp) {
 			}
 			display_shdr(fp, spos, &shdr);
 			if(check("startup.*") == 0) {
-				printf(" %8x %8lx  %s\n", spos + sizeof shdr, shdr.startup_size - sizeof shdr, "startup.*");
+				printf(" %8lx %8lx  %s\n", spos + sizeof shdr, shdr.startup_size - sizeof shdr, "startup.*");
 			}
 		}
 		display_ihdr(fp, ipos, &ihdr);
 		if(check("Image-directory") == 0) {
-			printf(" %8x %8lx  %s\n", dpos, ihdr.hdr_dir_size - ihdr.dir_offset, "Image-directory");
+			printf(" %8x %8x  %s\n", dpos, ihdr.hdr_dir_size - ihdr.dir_offset, "Image-directory");
 		}
 	}
 
@@ -666,11 +666,11 @@ void process(const char *file, FILE *fp) {
 			break;
 		}
 		if(CROSSENDIAN(ihdr.flags & IMAGE_FLAGS_BIGENDIAN)) {
-			unsigned long			*p;
+			uint32_t	*p;
 
 			dir->attr.size = ENDIAN_RET16(dir->attr.size);
 			dir->attr.extattr_offset = ENDIAN_RET16(dir->attr.extattr_offset);
-			for(p = (unsigned long *)&dir->attr.ino; (unsigned char *)p < (unsigned char *)dir + sizeof dir->attr; p++) {
+			for(p = (uint32_t *)&dir->attr.ino; (unsigned char *)p < (unsigned char *)dir + sizeof dir->attr; p++) {
 				*p = ENDIAN_RET32(*p);
 			}
 		}
@@ -735,9 +735,9 @@ void process(const char *file, FILE *fp) {
 			return;
 		}
 		if(CROSSENDIAN(shdr.flags1 & STARTUP_HDR_FLAGS1_BIGENDIAN))
-			printf("Checksums: image=%#lx", ENDIAN_RET32(itlr.cksum));
+			printf("Checksums: image=%#x", ENDIAN_RET32(itlr.cksum));
 		else
-			printf("Checksums: image=%#lx", itlr.cksum);
+			printf("Checksums: image=%#x", itlr.cksum);
 		if(spos != -1) {
 			fseek(fp, spos + shdr.startup_size-sizeof(stlr), SEEK_SET);
 			if(fread(&stlr, sizeof(stlr), 1, fp) != 1) {
@@ -746,9 +746,9 @@ void process(const char *file, FILE *fp) {
 				return;
 			}
 			if(CROSSENDIAN(shdr.flags1 & STARTUP_HDR_FLAGS1_BIGENDIAN))
-				printf(" startup=%#lx", ENDIAN_RET32(stlr.cksum));
+				printf(" startup=%#x", ENDIAN_RET32(stlr.cksum));
 			else
-				printf(" startup=%#lx", stlr.cksum);
+				printf(" startup=%#x", stlr.cksum);
 		}
 		printf("\n");
 	}
@@ -775,16 +775,16 @@ void display_shdr(FILE *fp, int spos, struct startup_header *hdr) {
 	if(check("Startup-header") != 0) {
 		return;
 	}
-	printf(" %8x %8x  %s flags1=%#x flags2=%#x paddr_bias=%#lx\n",
+	printf(" %8x %8x  %s flags1=%#x flags2=%#x paddr_bias=%#x\n",
 				spos, hdr->header_size, "Startup-header",
 				hdr->flags1, hdr->flags2,
 				hdr->paddr_bias);
 	if(verbose) {
-		printf("                       preboot_size=%#lx\n", (unsigned long)hdr->preboot_size);
-		printf("                       image_paddr=%#lx stored_size=%#lx\n", (unsigned long)hdr->image_paddr, (unsigned long)hdr->stored_size);
-		printf("                       startup_size=%#lx imagefs_size=%#lx\n", (unsigned long)hdr->startup_size, (unsigned long)hdr->imagefs_size);
-		printf("                       ram_paddr=%#lx ram_size=%#lx\n", (unsigned long)hdr->ram_paddr, (unsigned long)hdr->ram_size);
-		printf("                       startup_vaddr=%#lx\n", (unsigned long)hdr->startup_vaddr);
+		printf("                       preboot_size=%#x\n", (uint32_t)hdr->preboot_size);
+		printf("                       image_paddr=%#x stored_size=%#x\n", (uint32_t)hdr->image_paddr, (uint32_t)hdr->stored_size);
+		printf("                       startup_size=%#x imagefs_size=%#x\n", (uint32_t)hdr->startup_size, (uint32_t)hdr->imagefs_size);
+		printf("                       ram_paddr=%#x ram_size=%#x\n", (uint32_t)hdr->ram_paddr, (uint32_t)hdr->ram_size);
+		printf("                       startup_vaddr=%#x\n", (uint32_t)hdr->startup_vaddr);
 	}
 }
 
@@ -792,7 +792,7 @@ void display_ihdr(FILE *fp, int ipos, struct image_header *hdr) {
 	if(check("Image-header") != 0) {
 		return;
 	}
-	printf(" %8x %8x  %s", ipos, sizeof *hdr, "Image-header");
+	printf(" %8x %8lx  %s", ipos, sizeof *hdr, "Image-header");
 	if(hdr->mountpoint[0]) {
 		char				buff[512];
 
@@ -809,17 +809,17 @@ void display_ihdr(FILE *fp, int ipos, struct image_header *hdr) {
 
 		printf("                       flags=%#x", hdr->flags);
 		if(hdr->chain_paddr) {
-			printf(" chain=%#lx", hdr->chain_paddr);
+			printf(" chain=%#x", hdr->chain_paddr);
 		}
 		if(hdr->script_ino) {
-			printf(" script=%ld", hdr->script_ino);
+			printf(" script=%d", hdr->script_ino);
 		}
 		for(i = 0; i < sizeof hdr->boot_ino / sizeof hdr->boot_ino[0]; i++) {
 			if(hdr->boot_ino[i]) {
-				printf(" boot=%ld", hdr->boot_ino[i]);
+				printf(" boot=%d", hdr->boot_ino[i]);
 				for(i++; i < sizeof hdr->boot_ino / sizeof hdr->boot_ino[0]; i++) {
 					if(hdr->boot_ino[i]) {
-						printf(",%ld", hdr->boot_ino[i]);
+						printf(",%d", hdr->boot_ino[i]);
 					}
 				}
 				break;
@@ -827,19 +827,19 @@ void display_ihdr(FILE *fp, int ipos, struct image_header *hdr) {
 		}
 		for(i = 0; i < sizeof hdr->spare / sizeof hdr->spare[0]; i++) {
 			if(hdr->spare[i]) {
-				printf(" spare=%#lx", hdr->spare[0]);
+				printf(" spare=%#x", hdr->spare[0]);
 				for(i = 1; i < sizeof hdr->spare / sizeof hdr->spare[0]; i++) {
-					printf(",%ld", hdr->spare[i]);
+					printf(",%d", hdr->spare[i]);
 				}
 				break;
 			}
 		}
-		printf(" mntflg=%#lx\n", hdr->mountflags);
+		printf(" mntflg=%#x\n", hdr->mountflags);
 	}
 }
 
 void display_attr(struct image_attr *attr) {
-	printf("                       gid=%ld uid=%ld mode=%#lo ino=%ld mtime=%lx\n", attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->ino, attr->mtime);
+	printf("                       gid=%d uid=%d mode=%#o ino=%u mtime=%x\n", attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->ino, attr->mtime);
 }
 
 void display_dir(FILE *fp, int ipos, struct image_dir *ent) {
@@ -878,7 +878,7 @@ void display_device(FILE *fp, int ipos, struct image_device *ent) {
 	if(check(ent->path) != 0) {
 		return;
 	}
-	printf("     ----     ----  %s dev=%ld rdev=%ld\n", ent->path, ent->dev, ent->rdev);
+	printf("     ----     ----  %s dev=%d rdev=%d\n", ent->path, ent->dev, ent->rdev);
 
 	if(verbose) {
 		display_attr(&ent->attr);
@@ -1107,17 +1107,17 @@ void display_elf(FILE *fp, int pos, int size, char *name) {
 	if(ehdr.e_ehsize != sizeof ehdr) {
 		printf(" e_ehsize             : %d\n", ehdr.e_ehsize);
 	}
-	printf(" e_flags              : %#lx\n", (unsigned long)ehdr.e_flags);
+	printf(" e_flags              : %#x\n", (uint32_t)ehdr.e_flags);
 	if(ehdr.e_entry || ehdr.e_phoff || ehdr.e_phnum || ehdr.e_phentsize) {
-		printf(" e_entry              : %#lx\n", (unsigned long)ehdr.e_entry);
-		printf(" e_phoff              : %ld\n", (unsigned long)ehdr.e_phoff);
+		printf(" e_entry              : %#x\n", (uint32_t)ehdr.e_entry);
+		printf(" e_phoff              : %d\n", (uint32_t)ehdr.e_phoff);
 		printf(" e_phentsize          : %d\n", ehdr.e_phentsize);
 		printf(" e_phnum              : %d\n", ehdr.e_phnum);
 	} else if(ehdr.e_entry) {
-		printf(" e_entry              : %#lx\n", (unsigned long)ehdr.e_entry);
+		printf(" e_entry              : %#x\n", (uint32_t)ehdr.e_entry);
 	}
 	if(ehdr.e_shoff || ehdr.e_shnum || ehdr.e_shentsize || ehdr.e_shstrndx) {
-		printf(" e_shoff              : %ld\n", (unsigned long)ehdr.e_shoff);
+		printf(" e_shoff              : %d\n", (uint32_t)ehdr.e_shoff);
 		printf(" e_shentsize          : %d\n", ehdr.e_shentsize);
 		printf(" e_shnum              : %d\n", ehdr.e_shnum);
 	}
@@ -1165,15 +1165,15 @@ void display_elf(FILE *fp, int pos, int size, char *name) {
 				break;
 			}
 			printf("\n");
-			printf("   p_offset             : %ld\n", (unsigned long)phdr.p_offset);
-			printf("   p_vaddr              : 0x%lX\n", (unsigned long)phdr.p_vaddr);
-			printf("   p_paddr              : 0x%lX\n", (unsigned long)phdr.p_paddr);
-			printf("   p_filesz             : %ld\n", (unsigned long)phdr.p_filesz);
-			printf("   p_memsz              : %ld\n", (unsigned long)phdr.p_memsz);
+			printf("   p_offset             : %d\n", (uint32_t)phdr.p_offset);
+			printf("   p_vaddr              : 0x%X\n", (uint32_t)phdr.p_vaddr);
+			printf("   p_paddr              : 0x%X\n", (uint32_t)phdr.p_paddr);
+			printf("   p_filesz             : %d\n", (uint32_t)phdr.p_filesz);
+			printf("   p_memsz              : %d\n", (uint32_t)phdr.p_memsz);
 			printf("   p_flags              : ");
 			dsp_index(phdr_flags, sizeof phdr_flags / sizeof *phdr_flags, phdr.p_flags);
 			printf("\n");
-			printf("   p_align              : %ld\n", (unsigned long)phdr.p_align);
+			printf("   p_align              : %d\n", (uint32_t)phdr.p_align);
 		}
 	}
 	printf("----------\n");
@@ -1189,7 +1189,7 @@ void display_file(FILE *fp, int ipos, struct image_file *ent) {
 	if(check(ent->path) != 0) {
 		return;
 	}
-	printf(" %8lx %8lx  %s", ipos + ent->offset, ent->size, ent->path);
+	printf(" %8x %8x  %s", ipos + ent->offset, ent->size, ent->path);
 	if (flags & FLAG_MD5) {
 		unsigned char	md5_result[MD5_LENGTH];
 		int				i;

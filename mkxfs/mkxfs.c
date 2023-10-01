@@ -456,9 +456,9 @@ rgetenv(char *string) {
 }
 
 
-unsigned long
+uint32_t
 getsize(char *str, char **dst) {
-	unsigned long v;
+	uint32_t v;
 	
 	v = strtoul(str, &str, 0);
 	switch(*str) {

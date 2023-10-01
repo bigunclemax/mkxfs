@@ -32,7 +32,7 @@
 #include <sys/stat.h>
 #include "struct.h"
 #include <zlib.h>
-#include <lzo1x.h>
+#include <lzo/lzo1x.h>
 #include <ucl/ucl.h>
 #include "xplatform.h"
 
@@ -518,16 +518,16 @@ iwrite(void *buf, int nbytes, FILE *dst_fp, char *fname) {
 		if(index == 0x3) {
 			if(target_endian) {
 				image_cksum +=
-					  ((unsigned long)hold_cksum[0] << 24)
-					+ ((unsigned long)hold_cksum[1] << 16)
-					+ ((unsigned long)hold_cksum[2] <<  8)
-					+ ((unsigned long)hold_cksum[3]);
+					  ((uint32_t)hold_cksum[0] << 24)
+					+ ((uint32_t)hold_cksum[1] << 16)
+					+ ((uint32_t)hold_cksum[2] <<  8)
+					+ ((uint32_t)hold_cksum[3]);
 			} else {
 				image_cksum +=
-					  ((unsigned long)hold_cksum[3] << 24)
-					+ ((unsigned long)hold_cksum[2] << 16)
-					+ ((unsigned long)hold_cksum[1] <<  8)
-					+ ((unsigned long)hold_cksum[0]);
+					  ((uint32_t)hold_cksum[3] << 24)
+					+ ((uint32_t)hold_cksum[2] << 16)
+					+ ((uint32_t)hold_cksum[1] <<  8)
+					+ ((uint32_t)hold_cksum[0]);
 			}
 		}
 	}
@@ -1361,8 +1361,8 @@ relocate(struct file_entry *fip, int text_addr, int data_addr, int ehdr_size, ch
 	char			*p;
 	char			*fmt;
 	unsigned		skip;
-	unsigned long	var;
-	unsigned long	value;
+	uint32_t		var;
+	uint32_t		value;
 	enum {
 		COND_EQ	= 0x01,
 		COND_GT = 0x02,

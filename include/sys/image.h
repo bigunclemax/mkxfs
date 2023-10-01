@@ -22,7 +22,7 @@
 #include <sys/platform.h>
 #endif
 
-#include _NTO_HDR_(_pack64.h)
+//#include _NTO_HDR_(_pack64.h)
 
 enum {
 	IMAGE_FLAGS_BIGENDIAN	= 0x01,	/* header, trailer, dirents in big-endian format  */
@@ -36,14 +36,14 @@ enum {
 struct image_header {
 	char				signature[7];		/* Image filesystem signature */
 	unsigned char		flags;				/* endian neutral flags */
-	unsigned long		image_size;			/* size from header to end of trailer */
-	unsigned long		hdr_dir_size;		/* size from header to last dirent */
-	unsigned long		dir_offset;			/* offset from header to first dirent */
-	unsigned long		boot_ino[4];		/* inode of files for bootstrap pgms */
-	unsigned long		script_ino;			/* inode of file for script */
-	unsigned long		chain_paddr;		/* offset to next filesystem signature */
-	unsigned long		spare[10];
-	unsigned long		mountflags;			/* default _MOUNT_* from sys/iomsg.h */
+	uint32_t			image_size;			/* size from header to end of trailer */
+	uint32_t			hdr_dir_size;		/* size from header to last dirent */
+	uint32_t			dir_offset;			/* offset from header to first dirent */
+	uint32_t			boot_ino[4];		/* inode of files for bootstrap pgms */
+	uint32_t			script_ino;			/* inode of file for script */
+	uint32_t			chain_paddr;		/* offset to next filesystem signature */
+	uint32_t			spare[10];
+	uint32_t			mountflags;			/* default _MOUNT_* from sys/iomsg.h */
 	__FLEXARY(char, mountpoint);			/* default mountpoint for image */
 };
 
@@ -68,16 +68,16 @@ union image_dirent {
 	struct image_attr {
 		unsigned short		size;			/* size of dirent */
 		unsigned short		extattr_offset;	/* If zero, no extattr data */
-		unsigned long		ino;			/* If zero, skip entry */
-		unsigned long		mode;			/* Mode and perms of entry */
-		unsigned long		gid;
-		unsigned long		uid;
-		unsigned long		mtime;
+		uint32_t			ino;			/* If zero, skip entry */
+		uint32_t			mode;			/* Mode and perms of entry */
+		uint32_t			gid;
+		uint32_t			uid;
+		uint32_t			mtime;
 	}					attr;
 	struct image_file {						/* (attr.mode & S_IFMT) == S_IFREG */
 		struct image_attr	attr;
-		unsigned long		offset;			/* Offset from header */
-		unsigned long		size;
+		uint32_t			offset;			/* Offset from header */
+		uint32_t			size;
 		__FLEXARY(char, path);				/* null terminated path (No leading slash) */
 	}					file;
 	struct image_dir {						/* (attr.mode & S_IFMT) == S_IFDIR */
@@ -93,14 +93,14 @@ union image_dirent {
 	}					symlink;
 	struct image_device {					/* (attr.mode & S_IFMT) == S_IFCHR|BLK|FIFO|NAM|SOCK */
 		struct image_attr	attr;
-		unsigned long		dev;
-		unsigned long		rdev;
+		uint32_t			dev;
+		uint32_t			rdev;
 		__FLEXARY(char, path);				/* null terminated path (No leading slash) */
 	}					device;
 };
 
 struct image_trailer {
-	unsigned long			cksum;				/* Checksum from start of header to start of trailer */
+	uint32_t				cksum;				/* Checksum from start of header to start of trailer */
 };
 
 
@@ -182,7 +182,7 @@ union script_cmd {
 	} extsched_aps;
 };
 
-#include _NTO_HDR_(_packpop.h)
+//#include _NTO_HDR_(_packpop.h)
 
 #endif /* __IMAGE_H_INCLUDED */
 

@@ -36,7 +36,7 @@
 #include <sys/platform.h>
 #endif
 
-#include _NTO_HDR_(_pack64.h)
+//#include _NTO_HDR_(_pack64.h)
 
 
 /*
@@ -47,31 +47,31 @@
 **   IS - used by both the QNX IPL and the startup program
 */
 struct startup_header {
-	unsigned long	signature;			/*I  Header sig, see below*/
+	uint32_t		signature;			/*I  Header sig, see below*/
 	unsigned short	version;			/*I  Header vers, see below*/
 	unsigned char	flags1;				/*IS Misc flags, see below*/
 	unsigned char	flags2;             /*   No flags defined yet*/
 	unsigned short	header_size;		/*S  sizeof(struct startup_header)*/
 	unsigned short	machine;			/*IS Machine type from sys/elf.h*/
-	unsigned long	startup_vaddr;		/*I  Virtual Address to transfer*/
+	uint32_t		startup_vaddr;		/*I  Virtual Address to transfer*/
 										/*   to after IPL is done*/
-	unsigned long	paddr_bias;			/*S  Value to add to physical address*/
+	uint32_t		paddr_bias;			/*S  Value to add to physical address*/
 										/*   to get a value to put into a*/
 										/*   pointer and indirected through*/
-	unsigned long	image_paddr;		/*IS Physical address of image*/
-	unsigned long	ram_paddr;			/*IS Physical address of RAM to copy*/
+	uint32_t		image_paddr;		/*IS Physical address of image*/
+	uint32_t		ram_paddr;			/*IS Physical address of RAM to copy*/
 										/*   image to (startup_size bytes copied)*/
-	unsigned long	ram_size;			/*S  Amount of RAM used by the startup*/
+	uint32_t		ram_size;			/*S  Amount of RAM used by the startup*/
 										/*   program and executables contained*/
 										/*   in the file system*/
-	unsigned long	startup_size;		/*I  Size of startup (never compressed)*/
-	unsigned long	stored_size;		/*I  Size of entire image*/
-	unsigned long	imagefs_paddr;		/*IS Set by IPL to where the imagefs is when startup runs*/
-	unsigned long	imagefs_size;		/*S  Size of uncompressed imagefs*/
+	uint32_t		startup_size;		/*I  Size of startup (never compressed)*/
+	uint32_t		stored_size;		/*I  Size of entire image*/
+	uint32_t		imagefs_paddr;		/*IS Set by IPL to where the imagefs is when startup runs*/
+	uint32_t		imagefs_size;		/*S  Size of uncompressed imagefs*/
 	unsigned short	preboot_size;		/*I  Size of loaded before header*/
 	unsigned short	zero0;				/*   Zeros */
-	unsigned long	zero[3];			/*   Zeros */
-	unsigned long	info[48];			/*IS Array of startup_info* structures*/
+	uint32_t		zero[3];			/*   Zeros */
+	uint32_t		info[48];			/*IS Array of startup_info* structures*/
 };
 
 /* We keep the flags as chars so they are endian neutral */
@@ -274,8 +274,8 @@ struct startup_info_skip {
 
 struct startup_info_mem {
 	struct startup_info_hdr	hdr;
-	unsigned long			addr;
-	unsigned long			size;
+	uint32_t				addr;
+	uint32_t				size;
 };
 
 /*
@@ -285,8 +285,8 @@ struct startup_info_mem {
  */
 struct startup_info_mem_extended {
 	struct startup_info_mem	mem;
-	unsigned long			addr_hi;
-	unsigned long			size_hi;
+	uint32_t				addr_hi;
+	uint32_t				size_hi;
 };
 
 struct startup_info_disk {
@@ -296,12 +296,12 @@ struct startup_info_disk {
 	unsigned short			heads;
 	unsigned short			cylinders;
 	unsigned short			sectors;
-	unsigned long			blocks;
+	uint32_t				blocks;
 };
 
 struct startup_info_time {
 	struct startup_info_hdr	hdr;
-	unsigned long			time;
+	uint32_t				time;
 };
 
 struct startup_info_box {
@@ -316,7 +316,7 @@ struct bootargs_entry {
 	unsigned char			 size_hi;
 	char					 argc;
 	char					 envc;
-	unsigned long			 shdr_addr;
+	uint32_t				 shdr_addr;
 	char					 args[1];	/* variable length */
 };
 
@@ -330,10 +330,10 @@ struct bootargs_entry {
 					+__SC('b',4)+__SC('s',5)+__SC('k',6)+__SC('r',7))
 
 struct startup_trailer {
-	unsigned long			cksum;	/* Checksum from start of header to start of trailer */
+	uint32_t				cksum;	/* Checksum from start of header to start of trailer */
 };
 
-#include _NTO_HDR_(_packpop.h)
+//#include _NTO_HDR_(_packpop.h)
 
 #endif /* __STARTUP_H_INCLUDED */
 

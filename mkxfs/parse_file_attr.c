@@ -78,7 +78,7 @@ struct attr_types common_attr_table[] = {
 
 void
 parse_addr_space_spec(struct addr_space *space, char *sval) {
-	unsigned long	v;
+	uint32_t		v;
 	char			*next;
 
 	v = getsize(sval, &next);
