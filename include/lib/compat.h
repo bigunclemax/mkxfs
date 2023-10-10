@@ -847,8 +847,8 @@ struct _disk_entry {
 	extern char     *utoa( unsigned int __value, char *__buf, int __radix );
 	extern char     *lltoa( int64_t __value, char *__buf, int __radix );
 	extern char     *ulltoa( u_int64_t __value, char *__buf, int __radix );
-	extern void     strmode( mode_t mode, char *p );
-	extern size_t   strlcpy( char *dst, const char *src, size_t siz );
+	// extern void     strmode( mode_t mode, char *p );
+	// extern size_t   strlcpy( char *dst, const char *src, size_t siz );
 	extern off_t    tell( int __fildes );
 
 	/* from /usr/nto/usr/include/sys/stat.h */

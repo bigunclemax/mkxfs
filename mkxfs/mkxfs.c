@@ -2063,37 +2063,7 @@ main(int argc, char *argv[]) {
 	}
 
 	set_cpu(DEFAULT_CPU, 0);
-#if defined(__WIN32__) || defined(__NT__)
-	{
-		char *p, *qnx_target = getenv("QNX_TARGET");
-		if(!qnx_target) {
-			qnx_target = getenv("QSSL_TARGET");
-		}
-		if ( qnx_target ) {
-			if ( qnx_target[0] == '\"' ) { 
-				qnx_target++;
-				if ( (p = strrchr( qnx_target, '\"')) ) {
-					*p = '\0';
-				}
-			}
-		} else {
-			error_exit("QNX_TARGET environment variable must be set\n");
-		}
-		setenv( "QNX_TARGET", qnx_target, 0 );
-	}
-#else
-	{
-		char *qnx_target = getenv("QNX_TARGET");
-		if(!qnx_target) {
-			qnx_target = getenv("QSSL_TARGET");
-		}
-		if(qnx_target) {
-			setenv("QNX_TARGET",qnx_target, 0);
-		} else {
-			error_exit("QNX_TARGET environment variable must be set\n");
-		}
-    }
-#endif
+
     if(rootdir) {
 		setenv("_ROOTDIR_", rootdir, 1);
 

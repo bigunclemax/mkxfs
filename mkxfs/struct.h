@@ -37,7 +37,8 @@
 
 #if defined(__QNX__)     ||	\
 	defined(__SOLARIS__) ||	\
-	defined(linux)
+	defined(linux)       || \
+	defined(__APPLE__)
 
 	#define HOST_HAS_EXECUTE_PERM	1
 

@@ -37,7 +37,7 @@
 #undef gen_mkdir
 #define gen_mkdir(path,perm) mkdir(path)
 
-#elif defined(linux)
+#elif defined(linux) || defined(__APPLE__)
 // setenv() is in stdlib.h
 #include <libgen.h>
 
