@@ -515,6 +515,13 @@ void process(const char *file, FILE *fp) {
 	static char					buf[0x10000];
 	static char 				out_buf[0x10000];
 
+	if(flags & (FLAG_EXTRACT_RAW)) {
+		// Create buildfile
+		if (!(fp_bld = fopen("buildfile.bld", "w"))) {
+			error(0, "Unable to open %s: %s\n", "buildfile.bld", strerror(errno));
+		}
+	}
+
 	spos = -1;
 	if((ipos = find(fp, ihdr.signature, sizeof ihdr.signature, 0)) == -1) {
 		rewind(fp);
@@ -596,6 +603,18 @@ void process(const char *file, FILE *fp) {
 				putc(getc(fp), fp_ext);
 			}
 			fclose(fp_ext);
+
+			// Create bootstrap
+			if(!(fp_bootstrap = fopen("bootstrap", "w"))) {
+				error(0, "Unable to open %s: %s\n", "bootstrap", strerror(errno));
+			}
+			fprintf(fp_bootstrap, "[machine=%d entry=0x%x] startup\n",
+					shdr.machine, shdr.startup_vaddr);
+
+			// Fill the build file info
+			fprintf(fp_bld, "[image=0x%x]\n", shdr.image_paddr - spos);
+			fprintf(fp_bld, "[virtual=binary%s] bootstrap\n",
+					(shdr.flags1 & STARTUP_HDR_FLAGS1_COMPRESS_MASK) ? " +compress" : "");
 		}
 
 		// If the image is compressed we need to uncompress it into a
@@ -794,24 +813,7 @@ void process(const char *file, FILE *fp) {
 		}
 		fclose(fp_ext);
 
-		// Create buildfile
-		if(!(fp_bld = fopen("buildfile.bld", "w"))) {
-			error(0, "Unable to open %s: %s\n", "buildfile.bld", strerror(errno));
-		}
-
-		if (spos != -1) {
-			fprintf(fp_bld, "[image=0x%x]\n", shdr.image_paddr - spos);
-			fprintf(fp_bld, "[virtual=binary%s] bootstrap\n",
-					(shdr.flags1 & STARTUP_HDR_FLAGS1_COMPRESS_MASK) ? " +compress" : "");
-
-			// Create bootstrap
-			if(!(fp_bootstrap = fopen("bootstrap", "w"))) {
-				error(0, "Unable to open %s: %s\n", "bootstrap", strerror(errno));
-			}
-			fprintf(fp_bootstrap, "[machine=%d entry=0x%x] startup\n",
-					shdr.machine, shdr.startup_vaddr);
-		}
-
+		// Fill the build file info
 		fprintf(fp_bld, "[+page_align]\n");
 		fprintf(fp_bld, "[prefix=\"\"]\n");
 		fprintf(fp_bld, "[mount=\"%s\"]\n", ihdr.mountpoint);
