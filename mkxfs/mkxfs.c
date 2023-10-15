@@ -2063,6 +2063,7 @@ main(int argc, char *argv[]) {
 	}
 
 	set_cpu(DEFAULT_CPU, 0);
+#if 0
 #if defined(__WIN32__) || defined(__NT__)
 	{
 		char *p, *qnx_target = getenv("QNX_TARGET");
@@ -2094,6 +2095,7 @@ main(int argc, char *argv[]) {
 		}
     }
 #endif
+#endif
     if(rootdir) {
 		setenv("_ROOTDIR_", rootdir, 1);
 
@@ -2114,8 +2116,7 @@ main(int argc, char *argv[]) {
 	       
 	       // Feel free to get rid of this if /usr/photon/bin goes away
 	       PATHSEP_STR "${_ROOTDIR_}/${PROCESSOR}/usr/photon/bin"
-
-
+#if 0
 	       PATHSEP_STR "${QNX_TARGET}/${PROCESSOR}/sbin"   
 	       PATHSEP_STR "${QNX_TARGET}/${PROCESSOR}/usr/sbin"
 
@@ -2147,6 +2148,7 @@ main(int argc, char *argv[]) {
 	       
 	       // Feel free to get rid of this if /usr/photon/bin goes away
 	       PATHSEP_STR "${QNX_TARGET}/${PROCESSOR}/usr/photon/bin"
+#endif
 	       , 0 );
 	}
 
