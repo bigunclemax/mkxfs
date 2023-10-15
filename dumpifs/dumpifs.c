@@ -119,11 +119,12 @@ void process(const char *file, FILE *fp);
 
 void display_shdr(FILE *fp, int spos, struct startup_header *hdr);
 void display_ihdr(FILE *fp, int ipos, struct image_header *hdr);
-void process_file(FILE *fp, int ipos, struct image_file *ent, int is_script);
+void process_file(FILE *fp, int ipos, struct image_file *ent);
 void process_dir(FILE *fp, int ipos, struct image_dir *ent);
 void process_symlink(FILE *fp, int ipos, struct image_symlink *ent);
 void process_device(FILE *fp, int ipos, struct image_device *ent);
 void display_file(FILE *fp, int ipos, struct image_file *ent);
+void extract_file(FILE *fp, int ipos, const struct image_file *ent, int is_script);
 
 #define MD5_LENGTH            16
 void compute_md5(FILE *fp, int ipos, struct image_file *ent, unsigned char md5_result[16]);
@@ -349,12 +350,13 @@ char		**ptr;
 	return(value);
 }
 
-void display_script(FILE *fp, int pos, int len) {
+void display_script(FILE *fp, int pos, int len, FILE *dst) {
 	int								off;
 	char							buff[1024];
 	union script_cmd				*hdr = (union script_cmd *)buff;
 	int								size;
 	int								ext_sched = SCRIPT_SCHED_EXT_NONE;
+	FILE 							*fout = (dst) ? dst : stdout;
 
 	for(off = 0; off < len; off += size) {
 		fseek(fp, pos + off, SEEK_SET);
@@ -366,13 +368,16 @@ void display_script(FILE *fp, int pos, int len) {
 		}
 
 		if(size > sizeof *hdr) {
-			int							n = min(sizeof buff, size - sizeof *hdr);
+			int	n = min(sizeof buff, size - sizeof *hdr);
 
 			if(fread(hdr + 1, n, 1, fp) != 1) {
 				break;
 			}
 		}
-		printf("                       ");
+
+		if (!dst)
+			fprintf(fout,"                       ");
+
 		switch(hdr->hdr.type) {
 		case SCRIPT_TYPE_EXTERNAL: {
 			char			*cmd, *args, *envs;
@@ -386,83 +391,84 @@ void display_script(FILE *fp, int pos, int len) {
 			i = strcmp(basename(cmd), args);
 			
 			if(i || (hdr->external.flags & (SCRIPT_FLAGS_SESSION | SCRIPT_FLAGS_KDEBUG | SCRIPT_FLAGS_SCHED_SET | SCRIPT_FLAGS_CPU_SET | SCRIPT_FLAGS_EXTSCHED))) {
-				printf("[ ");
+				fprintf(fout,"[ ");
 				if(i) {
-					printf("argv0=%s ", args);
+					fprintf(fout,"argv0=%s ", args);
 				}
 				if(hdr->external.flags & SCRIPT_FLAGS_SESSION) {
-					printf("+session ");
+					fprintf(fout,"+session ");
 				}
 				if(hdr->external.flags & SCRIPT_FLAGS_KDEBUG) {
-					printf("+debug ");
+					fprintf(fout,"+debug ");
 				}
 				if(hdr->external.flags & SCRIPT_FLAGS_SCHED_SET) {
-					printf("priority=%d", hdr->external.priority);
+					fprintf(fout,"priority=%d", hdr->external.priority);
 					switch(hdr->external.policy) {
 					case SCRIPT_POLICY_NOCHANGE:
 						break;
 					case SCRIPT_POLICY_FIFO:
-						printf("f");
+						fprintf(fout,"f");
 						break;
 					case SCRIPT_POLICY_RR:
-						printf("r");
+						fprintf(fout,"r");
 						break;
 					case SCRIPT_POLICY_OTHER:
-						printf("o");
+						fprintf(fout,"o");
 						break;
 					default:
-						printf("?%d?", hdr->external.policy);
+						fprintf(fout,"?%d?", hdr->external.policy);
 						break;
 				    }
-					printf(" ");
+					fprintf(fout," ");
 				}
 				if(hdr->external.flags & SCRIPT_FLAGS_CPU_SET) {
-					printf("cpu=%d ", hdr->external.cpu);
+					fprintf(fout,"cpu=%d ", hdr->external.cpu);
 				}
 				if(hdr->external.flags & SCRIPT_FLAGS_EXTSCHED) {
-					printf("sched_aps=%s ", associate(hdr->external.extsched.aps.id, NULL));
+					fprintf(fout,"sched_aps=%s ", associate(hdr->external.extsched.aps.id, NULL));
 				}
-				printf("] ");
+				fprintf(fout,"] ");
 			}
 			for(i = 0; i < hdr->external.envc; i++) {
-				printf("%s ", envs);
+				fprintf(fout,"%s ", envs);
 				envs = envs + strlen(envs) + 1;
 			}
-			printf("%s", cmd);
+			fprintf(fout,"%s", cmd);
 
 			args = args + strlen(args) + 1;
 			for(i = 1; i < hdr->external.argc; i++) {
-				printf(" %s", args);
+				fprintf(fout," %s", args);
 				args = args + strlen(args) + 1;
 			}
 			
 			if(hdr->external.flags & SCRIPT_FLAGS_BACKGROUND) {
-				printf(" &");
+				fprintf(fout," &");
 			}
-			printf("\n");
+			fprintf(fout,"\n");
 			break;
 		}
 			
 		case SCRIPT_TYPE_WAITFOR:
-			printf("waitfor");
+			fprintf(fout,"waitfor");
 			goto wait;
 		case SCRIPT_TYPE_REOPEN:
-			printf("reopen");
-wait:	
+			fprintf(fout,"reopen");
+wait:
+			fprintf(fout," %s", hdr->waitfor_reopen.fname);
 			if(hdr->waitfor_reopen.checks_lo || hdr->waitfor_reopen.checks_hi) {
-				int					checks = hdr->waitfor_reopen.checks_lo | hdr->waitfor_reopen.checks_hi << 8;
+				int	checks = hdr->waitfor_reopen.checks_lo | hdr->waitfor_reopen.checks_hi << 8;
 
-				printf(" %d.%d", checks / 10, checks % 10);
+				fprintf(fout," %d.%d", checks / 10, checks % 10);
 			}
-			printf(" %s\n", hdr->waitfor_reopen.fname);
+			fprintf(fout,"\n");
 			break;
 
 		case SCRIPT_TYPE_DISPLAY_MSG:
-			printf("display_msg '%s'\n", hdr->display_msg.msg);
+			fprintf(fout,"display_msg %s%s", hdr->display_msg.msg, (hdr->display_msg.msg[0]) ? "" : "\n");
 			break;
 
 		case SCRIPT_TYPE_PROCMGR_SYMLINK:
-			printf("procmgr_symlink '%s' '%s'\n", hdr->procmgr_symlink.src_dest,
+			fprintf(fout,"procmgr_symlink \"%s\" \"%s\"\n", hdr->procmgr_symlink.src_dest,
 				&hdr->procmgr_symlink.src_dest[strlen(hdr->procmgr_symlink.src_dest)+1]);
 			break;
 
@@ -470,13 +476,13 @@ wait:
 			if (ext_sched == SCRIPT_SCHED_EXT_NONE)
 				associate(SCRIPT_APS_SYSTEM_PARTITION_ID, SCRIPT_APS_SYSTEM_PARTITION_NAME);
 			else if (ext_sched != SCRIPT_SCHED_EXT_APS)
-				printf("Invalid combination of SCHED_EXT features\n");
+				fprintf(fout,"Invalid combination of SCHED_EXT features\n");
 			ext_sched = SCRIPT_SCHED_EXT_APS;
-			printf("sched_aps %s %d %d\n", associate(hdr->extsched_aps.id, hdr->extsched_aps.pname), hdr->extsched_aps.budget, hdr->extsched_aps.critical_hi << 8 | hdr->extsched_aps.critical_lo);
+			fprintf(fout,"sched_aps %s %d %d\n", associate(hdr->extsched_aps.id, hdr->extsched_aps.pname), hdr->extsched_aps.budget, hdr->extsched_aps.critical_hi << 8 | hdr->extsched_aps.critical_lo);
 			break;
 
 		default:
-			printf("Unknown type %d\n", hdr->hdr.type);
+			fprintf(fout,"Unknown type %d\n", hdr->hdr.type);
 		}
 	}
 }
@@ -870,9 +876,16 @@ void process(const char *file, FILE *fp) {
 				dir->file.offset = ENDIAN_RET32(dir->file.offset);
 				dir->file.size = ENDIAN_RET32(dir->file.size);
 			}
-			process_file(fp, ipos, &dir->file, (dir->attr.ino == ihdr.script_ino));
-			if(dir->attr.ino == ihdr.script_ino && verbose > 1) {
-				display_script(fp, ipos + dir->file.offset, dir->file.size);
+			if(dir->attr.ino == ihdr.script_ino) {
+				if(flags & (FLAG_EXTRACT_RAW))
+					extract_file(fp, ipos, &dir->file, 1);
+				else
+					process_file(fp, ipos, &dir->file);
+
+				if (verbose > 1)
+					display_script(fp, ipos + dir->file.offset, dir->file.size, NULL);
+			} else {
+				process_file(fp, ipos, &dir->file);
 			}
 			break;
 		case S_IFDIR:
@@ -1133,7 +1146,20 @@ void mkdir_p(const char *dir) {
 	mkdir(tmp, S_IRWXU);
 }
 
-void extract_file(FILE *fp, int ipos, const struct image_file *ent) {
+const char* get_phys_align(uint32_t offset) {
+	static const char str_4K[] 	= "4K";
+	static const char str_64K[] = "64K";
+	static const char str_1M[] 	= "1M";
+
+	if (!(offset % 0x100000))
+		return str_1M;
+	if (!(offset % 0x10000))
+		return str_64K;
+
+	return str_4K;
+}
+
+void extract_file(FILE *fp, int ipos, const struct image_file *ent, int is_script) {
 	char			*name, nbuff[_POSIX_PATH_MAX];
 	FILE			*dst;
 	struct utimbuf	buff;
@@ -1181,12 +1207,24 @@ void extract_file(FILE *fp, int ipos, const struct image_file *ent) {
 		error(0, "Unable to open %s: %s\n", name, strerror(errno));
 	}
 
-	fseek(fp, ipos + ent->offset, SEEK_SET);
-	ftruncate(fileno(dst), ent->size); /* pregrow the dst file */
-	if(copy(fp, dst, ent->size) == -1) {
-		unlink(name);
-		error(0, "Unable to create file %s: %s\n", name, strerror(errno));
+	if (is_script) {
+		struct image_attr *attr = &ent->attr;
+
+		display_script(fp, ipos + ent->offset, ent->size, dst);
+
+		fprintf(fp_bld, "[type=file gid=%d uid=%d perms=%#o mtime=%u phys_align=%s +script] %s=%s\n",
+				attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->mtime,
+				get_phys_align(ipos + ent->offset), ent->path, name);
+
+	} else {
+		fseek(fp, ipos + ent->offset, SEEK_SET);
+		ftruncate(fileno(dst), ent->size); /* pregrow the dst file */
+		if(copy(fp, dst, ent->size) == -1) {
+			unlink(name);
+			error(0, "Unable to create file %s: %s\n", name, strerror(errno));
+		}
 	}
+
 	fchmod(fileno(dst), ent->attr.mode & 07777);
 	fchown(fileno(dst), ent->attr.uid, ent->attr.gid);
 	fclose(dst);
@@ -1197,41 +1235,20 @@ void extract_file(FILE *fp, int ipos, const struct image_file *ent) {
 	}
 }
 
-const char* get_phys_align(uint32_t offset) {
-	static const char str_4K[] 	= "4K";
-	static const char str_64K[] = "64K";
-	static const char str_1M[] 	= "1M";
-
-	if (!(offset % 0x100000))
-		return str_1M;
-	if (!(offset % 0x10000))
-		return str_64K;
-
-	return str_4K;
-}
-
-void process_file(FILE *fp, int ipos, struct image_file *ent, int is_script) {
+void process_file(FILE *fp, int ipos, struct image_file *ent) {
 	if(flags & FLAG_EXTRACT) {
-		extract_file(fp, ipos, ent);
+		extract_file(fp, ipos, ent, 0);
 	}
 	if(flags & (FLAG_MD5|FLAG_DISPLAY)) {
 		display_file(fp, ipos, ent);
 	}
 	if(flags & (FLAG_EXTRACT_RAW)) {
 		struct image_attr *attr = &ent->attr;
-		const char *script_str = "";
-		FILE *fp_out = fp_bld;
+		FILE *fp_out = (attr->ino & IFS_INO_BOOTSTRAP_EXE) ? fp_out = fp_bootstrap : fp_bld;
 
-		if (is_script) {
-			script_str = " +script +raw";
-		} else if (attr->ino & IFS_INO_BOOTSTRAP_EXE) {
-			fp_out = fp_bootstrap;
-		}
-
-		fprintf(fp_out, "[type=file gid=%d uid=%d perms=%#o mtime=%u +raw flags=%u phys_align=%s%s] %s",
-				attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->mtime,
-				get_inode_flags(attr->ino), get_phys_align(ipos + ent->offset),
-				script_str, ent->path);
+		fprintf(fp_out, "[type=file gid=%d uid=%d perms=%#o mtime=%u +raw flags=%u phys_align=%s] %s",
+				attr->gid, attr->uid, attr->mode & ~S_IFMT, attr->mtime, get_inode_flags(attr->ino),
+				get_phys_align(ipos + ent->offset), ent->path);
 
 		if (attr->ino & IFS_INO_BOOTSTRAP_EXE) {
 			putc('\n', fp_out);
